@@ -8,7 +8,7 @@ Ejecutar el proyecto:
 make run
 
 Evaluar la sintaxis de otro .txt (el archivo debe estar en la misma carpeta preproyect):
-make FILE=<otro-archivo.txt>
+make run FILE=<otro-archivo.txt>
 
 Ejemplo de uso con otro .txt:
-make FILE=ejemplo1.txt
+make run FILE=ejemplo1.txt
