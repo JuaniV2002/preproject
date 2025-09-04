@@ -33,8 +33,6 @@ int main(int argc, char *argv[]) {
 
         printf("\nEl programa es sintacticamente correcto.\n\n");
 
-        executeInterpreter(root, symbolTable);
-
         printf("Codigo assembly generado:\n\n");
         generate(root);
     } else {

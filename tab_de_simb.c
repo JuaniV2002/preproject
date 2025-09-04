@@ -79,8 +79,8 @@ void printTS(TSNode* symbolTable) {
             printf("Nombre: %s, Tipo: ", current->symbol->name);
             switch (current->symbol->type) {
                 case TYPE_VOID: printf("void\n\n"); break;
-                case TYPE_INT: printf("int\n\n"); break;
-                case TYPE_BOOL: printf("bool\n\n"); break;
+                case TYPE_INT: printf("int, Valor: %i\n\n", current->symbol->value->int_num); break;
+                case TYPE_BOOL: printf("bool, Valor: %s\n\n", (current->symbol->value->boolean) ? "true" : "false"); break;
                 default: printf("none\n\n"); break;
             }
         }
