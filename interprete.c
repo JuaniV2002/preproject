@@ -1,8 +1,64 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "tab_de_simb.h"
 #include "interprete.h"
+
+infoType retType;
+
+infoType findType(Node* root, TSNode* symbolTable) {
+    if (!root) return NONE_INFO;
+
+    if (root->t_Node == TERM && root->t_Info == TYPE_INT) {
+        return TYPE_INT;
+    }
+    if (root->t_Node == TERM && root->t_Info == TYPE_BOOL) {
+        return TYPE_BOOL;
+    }
+    if (root->t_Node == TERM && root->t_Info == TYPE_ID) {
+        Symbol* sym = getSymbol(symbolTable, root->info->id);
+        if (!sym) {
+            fprintf(stderr, "Error de retorno: Variable '%s' no declarada.\n", root->info->id);
+            exit(EXIT_FAILURE);
+        }
+        return sym->type;
+    }
+
+    switch (root->t_Node) {
+        case EXP:
+            if (root->left && root->right) {
+                infoType leftType = findType(root->left, symbolTable);
+                infoType rightType = findType(root->right, symbolTable);
+                if (leftType != rightType) {
+                    fprintf(stderr, "Error de retorno: Tipos incompatibles en la expresion.\n");
+                    exit(EXIT_FAILURE);
+                }
+                return leftType;
+            } else {
+                fprintf(stderr, "Error de retorno: Expresion incompleta.\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        default:
+            fprintf(stderr, "Error de retorno: Nodo no soportado en la interpretacion.\n");
+            exit(EXIT_FAILURE);
+    }
+}
+
+int checkReturnExistence(Node* root) {
+    if (!root) return 0;
+
+    switch (root->t_Node) {
+        case PROG:
+            if (root->right) checkReturnExistence(root->right);
+            break;
+        case RET:
+            // Se encontro un return
+            return 1;
+        default:
+            if (root->left) checkReturnExistence(root->left);
+            if (root->right) checkReturnExistence(root->right);
+            break;
+    }
+}
 
 int findValue(Node* root, TSNode* symbolTable) {
     if (!root) return 0;
@@ -32,6 +88,7 @@ int findValue(Node* root, TSNode* symbolTable) {
 
     switch (root->t_Node) {
         case PROG:
+            retType = root->t_Info;
             return findValue(root->right, symbolTable);
         case DECL:
             break;
@@ -64,8 +121,24 @@ int findValue(Node* root, TSNode* symbolTable) {
         }
         case RET:
             if (root->left) {
-                return findValue(root->left, symbolTable);
+                if (retType == TYPE_VOID) {
+                    fprintf(stderr, "Error: La funcion es de tipo void y no debe retornar un valor.\n");
+                    exit(EXIT_FAILURE);
+                }
+
+                int retVal = findValue(root->left, symbolTable);
+
+                if (retType != findType(root->left, symbolTable)) {
+                    fprintf(stderr, "Error: Tipo de retorno no coincide con el tipo de la funcion.\n");
+                    exit(EXIT_FAILURE);
+                }
+                return retVal;
             } else {
+                if (retType != TYPE_VOID) {
+                    fprintf(stderr, "Error: La funcion debe retornar un valor.\n");
+                    exit(EXIT_FAILURE);
+                }
+                
                 return 0; // void return
             }
             break;
@@ -86,6 +159,18 @@ int findValue(Node* root, TSNode* symbolTable) {
             }
             break;
         case SENT:
+            // Verificar dos nodos mas adelante si hay una sentencia despues de un return
+            if (root->left && root->left->left && (root->left->left->t_Node == RET || root->left->right->t_Node == RET) && root->right) {
+                fprintf(stderr, "Error: Sentencia despues de return no permitida.\n");
+                exit(EXIT_FAILURE);
+            }
+
+            // Verificar un nodo mas adelante si hay una sentencia despues de un return
+            if (root->left->left && root->left->left->t_Node == RET && root->right) {
+                fprintf(stderr, "Error: Sentencia despues de return no permitida.\n");
+                exit(EXIT_FAILURE);
+            }
+
             findValue(root->left, symbolTable);
             findValue(root->right, symbolTable);
             break;
@@ -139,5 +224,20 @@ void executeInterpreter(Node* root, TSNode* symbolTable) {
     if (!root) return;
 
     interpretDecl(root->left, symbolTable);
-    findValue(root, symbolTable);
+    int val = findValue(root, symbolTable);
+
+    if (!checkReturnExistence(root)) {
+        if (retType != TYPE_VOID) {
+            fprintf(stderr, "Error: La funcion debe retornar un valor.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (retType == TYPE_VOID) {
+        printf("Valor de retorno de la funcion: void\n\n");
+    } else if (retType == TYPE_INT) {
+        printf("Valor de retorno de la funcion: %d\n\n", val);
+    } else if (retType == TYPE_BOOL) {
+        printf("Valor de retorno de la funcion: %s\n\n", val ? "true" : "false");
+    }
 }
